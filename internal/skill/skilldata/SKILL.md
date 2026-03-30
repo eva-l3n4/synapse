@@ -9,7 +9,7 @@ license: MIT
 compatibility: Requires synapse binary. Works on macOS and Linux.
 metadata:
   author: swiftj
-  version: "1.0.6"
+  version: "{{VERSION}}"
   repository: "https://github.com/swiftj/synapse"
 ---
 

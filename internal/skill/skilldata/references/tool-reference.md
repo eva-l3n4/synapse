@@ -117,7 +117,10 @@ Append a note to a task for context persistence.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `id` | number | yes | Task ID |
-| `note` | string | yes | Note content |
+| `note` | string | yes* | Note content |
+| `content` | string | yes* | Alias for `note` |
+
+*One of `note` or `content` is required.
 
 ## Breadcrumb Memory
 

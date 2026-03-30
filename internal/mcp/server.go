@@ -413,8 +413,12 @@ func (s *Server) handleToolsList(req *jsonRPCRequest) {
 						"type":        "string",
 						"description": "Note content to add",
 					},
+					"content": map[string]any{
+						"type":        "string",
+						"description": "Alias for 'note' — note content to add",
+					},
 				},
-				"required": []string{"id", "note"},
+				"required": []string{"id"},
 			},
 		},
 		{
@@ -1149,6 +1153,9 @@ func (s *Server) addNote(args map[string]any) (toolCallResult, error) {
 	}
 
 	note, ok := args["note"].(string)
+	if !ok || note == "" {
+		note, ok = args["content"].(string)
+	}
 	if !ok || note == "" {
 		return toolCallResult{}, fmt.Errorf("note is required")
 	}

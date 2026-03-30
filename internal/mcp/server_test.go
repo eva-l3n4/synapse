@@ -283,6 +283,95 @@ func TestStringTypedParameters(t *testing.T) {
 	})
 }
 
+func TestAddNote_NoteAndContentAlias(t *testing.T) {
+	dir := t.TempDir()
+	store := storage.NewJSONLStore(dir)
+	if _, err := store.Init(); err != nil {
+		t.Fatalf("failed to init store: %v", err)
+	}
+	bcStore := storage.NewBreadcrumbStore(dir)
+	server := NewServer(store, bcStore)
+
+	t.Run("note property adds note", func(t *testing.T) {
+		syn, _ := store.Create("Task A")
+		store.Save()
+
+		result, err := server.addNote(map[string]any{
+			"id":   float64(syn.ID),
+			"note": "via note property",
+		})
+		if err != nil {
+			t.Fatalf("add_note with 'note' failed: %v", err)
+		}
+		if result.IsError {
+			t.Fatalf("add_note returned error: %s", result.Content[0].Text)
+		}
+
+		updated, _ := store.Get(syn.ID)
+		if len(updated.Notes) != 1 || updated.Notes[0] != "via note property" {
+			t.Errorf("expected note 'via note property', got %v", updated.Notes)
+		}
+	})
+
+	t.Run("content property adds note", func(t *testing.T) {
+		syn, _ := store.Create("Task B")
+		store.Save()
+
+		result, err := server.addNote(map[string]any{
+			"id":      float64(syn.ID),
+			"content": "via content property",
+		})
+		if err != nil {
+			t.Fatalf("add_note with 'content' failed: %v", err)
+		}
+		if result.IsError {
+			t.Fatalf("add_note returned error: %s", result.Content[0].Text)
+		}
+
+		updated, _ := store.Get(syn.ID)
+		if len(updated.Notes) != 1 || updated.Notes[0] != "via content property" {
+			t.Errorf("expected note 'via content property', got %v", updated.Notes)
+		}
+	})
+
+	t.Run("note takes precedence over content", func(t *testing.T) {
+		syn, _ := store.Create("Task C")
+		store.Save()
+
+		result, err := server.addNote(map[string]any{
+			"id":      float64(syn.ID),
+			"note":    "from note",
+			"content": "from content",
+		})
+		if err != nil {
+			t.Fatalf("add_note failed: %v", err)
+		}
+		if result.IsError {
+			t.Fatalf("add_note returned error: %s", result.Content[0].Text)
+		}
+
+		updated, _ := store.Get(syn.ID)
+		if len(updated.Notes) != 1 || updated.Notes[0] != "from note" {
+			t.Errorf("expected 'from note' to win, got %v", updated.Notes)
+		}
+	})
+
+	t.Run("neither note nor content returns error", func(t *testing.T) {
+		syn, _ := store.Create("Task D")
+		store.Save()
+
+		_, err := server.addNote(map[string]any{
+			"id": float64(syn.ID),
+		})
+		if err == nil {
+			t.Fatal("expected error when neither note nor content provided")
+		}
+		if !strings.Contains(err.Error(), "note is required") {
+			t.Errorf("expected 'note is required' error, got: %v", err)
+		}
+	})
+}
+
 func TestToFloat64(t *testing.T) {
 	tests := []struct {
 		name    string
