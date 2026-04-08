@@ -201,3 +201,6 @@ This lets the next session resume instantly without re-reading code.
 4. **Add notes as you go**: Future sessions will thank you
 5. **Use breadcrumbs for decisions**: Record WHY, not just WHAT
 6. **Clean up**: `delete_task` completed items periodically, or use `syn delete --done`
+7. **Patch tasks via CLI/MCP, never the JSONL**: Use `update_task` (MCP) or
+   `syn update <id>` (CLI). Editing `.synapse/memory.jsonl` directly will
+   corrupt indices and lose deterministic ordering.

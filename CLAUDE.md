@@ -79,20 +79,31 @@ type Synapse struct {
 - Run tests: `go test ./...`
 
 ### Building
-- Build: `go build -o synapse ./cmd/synapse`
+- Build both binaries: `go install ./...`  ← installs `synapse` AND `syn`
+- Single binary: `go build -o synapse ./cmd/synapse`
 - Static binary: `CGO_ENABLED=0 go build -ldflags="-s -w" -o synapse ./cmd/synapse`
+- All CLI logic lives in `internal/cli`. Both `cmd/synapse` and `cmd/syn` are
+  thin shims that call `cli.RunMain()`. Keep them in sync.
 
 ## CLI Commands
 
+Both `syn` and `synapse` are valid binary names — use whichever is installed.
+Every subcommand supports `--help` (or `-h`).
+
 | Command | Description |
 |---------|-------------|
-| `syn init` | Initialize .synapse directory |
-| `syn add "Title" [--blocks N] [--parent N]` | Create new synapse |
+| `syn init [--git]` | Initialize .synapse directory |
+| `syn doctor` | Health check (binary, aliases, store, MCP, git) |
+| `syn add "Title" [--priority N] [--label X] [--blocks N] [--parent N] [--assignee X]` | Create new synapse |
+| `syn update <id> [flags]` / `syn edit <id> [flags]` | Patch any field on a task |
+| `syn block <id> --by N` | Add blocker(s) to a task |
+| `syn unblock <id> [--from N \| --all]` | Remove blocker(s) from a task |
+| `syn note <id> "text"` | Append a note to a task |
 | `syn ready [--json]` | List unblocked, actionable tasks |
-| `syn claim N` | Mark task as in-progress |
-| `syn done N` | Mark task as complete |
-| `syn delete N` or `syn rm N` | Delete a task by ID |
-| `syn delete --all` | Delete all tasks |
+| `syn claim <id>` | Mark task as in-progress |
+| `syn done <id>` | Mark task as complete |
+| `syn delete <id>` / `syn rm <id>` | Delete a task by ID |
+| `syn delete --all` / `--done` | Bulk delete |
 | `syn view` | Start visualization server on :8080 |
 | `syn serve` | Start MCP server on stdio |
 

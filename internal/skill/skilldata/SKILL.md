@@ -18,6 +18,8 @@ metadata:
 Local-first, Git-backed task tracker and breadcrumb memory system.
 Data: `.synapse/memory.jsonl` (Git-tracked). Prefer MCP tools when available; fall back to `syn` CLI otherwise (see `references/tool-reference.md`).
 
+**CLI binary**: both `syn` and `synapse` are valid and behave identically. Every subcommand supports `--help` (or `-h`). Run `syn doctor` for a one-shot health check (binary path, alias status, store state, MCP availability).
+
 ## Core Workflow
 
 **Session Start**: `get_context_window` → `list_breadcrumbs` prefix `session.` → `get_next_task` → `claim_task`

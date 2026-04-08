@@ -2,6 +2,12 @@
 
 Complete reference for all Synapse MCP tools with parameters, types, and examples.
 
+> **CLI fallback**: when no MCP server is available, every operation has a CLI
+> equivalent. The binary is installed under **two interchangeable names**:
+> `syn` and `synapse` — pick whichever is on PATH. Every subcommand supports
+> `--help` / `-h`, and `syn doctor` reports installation health in one shot.
+> See the bottom of this file for the full CLI command map.
+
 ## Task Management
 
 ### create_task
@@ -204,3 +210,48 @@ Get tasks modified within a time window for session context recovery.
 |-----------|------|----------|-------------|
 | `minutes` | number | no | Look back N minutes (default: 60) |
 | `agent_id` | string | no | Filter by agent |
+
+## CLI Command Map
+
+The CLI exposes every operation above and a few extras. Both `syn` and
+`synapse` are valid binary names and behave identically.
+
+| MCP tool | CLI equivalent |
+|----------|----------------|
+| (any)              | `syn --help` / `syn <cmd> --help` |
+| (none)             | `syn doctor` — health check |
+| `create_task`      | `syn add "Title" [--priority N] [--label X] [--blocks N] [--parent N] [--assignee X]` |
+| `update_task`      | `syn update <id> [--title X] [--description X] [--status X] [--priority N] [--assignee X] [--parent N] [--add-blocker N] [--remove-blocker N] [--set-blockers "1,2,3"] [--add-label X] [--remove-label X] [--set-labels "a,b,c"]` |
+| (alias)            | `syn edit <id> ...` (alias for `update`) |
+| (shortcut)         | `syn block <id> --by N [--by N ...]` |
+| (shortcut)         | `syn unblock <id> [--from N \| --all]` |
+| `add_note`         | `syn note <id> "text"` |
+| `get_task`         | `syn get <id> [--json]` |
+| `list_tasks`       | `syn list [--status X] [--limit N] [--full] [--json]` |
+| `get_next_task`    | `syn ready [--json]` |
+| `claim_task`       | `syn claim <id>` |
+| `complete_task`    | `syn done <id>` |
+| `delete_task`      | `syn delete <id>` (or `--all` / `--done`) |
+| `set_breadcrumb`   | `syn bc set <key> <value> [--task-id N]` |
+| `get_breadcrumb`   | `syn bc get <key>` |
+| `list_breadcrumbs` | `syn bc list [prefix]` |
+| `delete_breadcrumb`| `syn bc delete <key>` |
+
+### Patching tasks safely
+
+**Never edit `.synapse/memory.jsonl` by hand.** Use `syn update` for any field
+change. Examples:
+
+```bash
+syn update 12 --priority 9 --add-label security
+syn update 12 --add-blocker 4 --add-blocker 7
+syn update 12 --status review --assignee @qa
+syn update 12 --set-blockers ""           # clear all blockers
+syn update 12 --remove-blocker 4
+syn block   12 --by 4 --by 7              # quick equivalent
+syn unblock 12 --from 4                   # quick equivalent
+syn unblock 12 --all                      # remove every blocker
+```
+
+Adding the first blocker auto-flips status to `blocked`; removing the last one
+auto-flips it back to `open` (unless you explicitly set status with `--status`).
