@@ -22,8 +22,9 @@ import (
 )
 
 // Version is the canonical synapse version string.
-// The post-commit Git hook auto-bumps this constant.
-const Version = "1.0.9"
+// The post-commit Git hook auto-bumps cmd/synapse/main.go's `const version`;
+// keep this in sync with that constant.
+const Version = "1.0.10"
 
 // hasHelpFlag returns true if args contains -h, --help, or help.
 // Used by every subcommand so users can run `synapse <cmd> --help`.
