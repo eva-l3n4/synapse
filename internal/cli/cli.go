@@ -888,6 +888,7 @@ func (r *runner) cmdList(args []string) int {
 	}
 
 	var statusFilter string
+	var labelFilter string
 	var fullOutput bool
 	limit := 20
 
@@ -897,6 +898,11 @@ func (r *runner) cmdList(args []string) int {
 			if i+1 < len(args) {
 				i++
 				statusFilter = args[i]
+			}
+		case "--label":
+			if i+1 < len(args) {
+				i++
+				labelFilter = args[i]
 			}
 		case "--limit":
 			if i+1 < len(args) {
@@ -929,6 +935,8 @@ func (r *runner) cmdList(args []string) int {
 			return 1
 		}
 		synapses = store.ByStatus(status)
+	} else if labelFilter != "" {
+		synapses = store.ByLabel(labelFilter)
 	} else {
 		synapses = store.All()
 	}
@@ -1054,6 +1062,11 @@ func (r *runner) cmdClaim(args []string) int {
 	syn, err := store.Get(id)
 	if err != nil {
 		r.errorf("error: %v\n", err)
+		return 1
+	}
+
+	if syn.Status == types.StatusDone {
+		r.errorf("error: synapse #%d is already done\n", id)
 		return 1
 	}
 
@@ -1681,6 +1694,15 @@ func (r *runner) cmdDone(args []string) int {
 	if err != nil {
 		r.errorf("error: %v\n", err)
 		return 1
+	}
+
+	if syn.Status == types.StatusDone {
+		if r.jsonOutput {
+			r.jsonOut(syn)
+			return 0
+		}
+		r.printf("Synapse #%d is already done\n", syn.ID)
+		return 0
 	}
 
 	syn.MarkDone()

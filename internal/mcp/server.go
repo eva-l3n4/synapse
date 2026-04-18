@@ -11,7 +11,7 @@ import (
 	"io"
 	"log"
 	"os"
-	"reflect"
+	"slices"
 	"strconv"
 	"time"
 
@@ -769,7 +769,7 @@ func (s *Server) updateTask(args map[string]any) (toolCallResult, error) {
 				blockedBy = append(blockedBy, int(bid))
 			}
 		}
-		blockersChanged = !reflect.DeepEqual(oldBlockedBy, blockedBy)
+		blockersChanged = !slices.Equal(oldBlockedBy, blockedBy)
 		syn.BlockedBy = blockedBy
 	}
 
