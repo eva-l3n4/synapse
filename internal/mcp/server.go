@@ -11,6 +11,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -741,7 +742,9 @@ func (s *Server) updateTask(args map[string]any) (toolCallResult, error) {
 		return toolCallResult{}, err
 	}
 
+	statusProvided := false
 	if status, ok := args["status"].(string); ok {
+		statusProvided = true
 		newStatus := types.Status(status)
 		if !newStatus.IsValid() {
 			return toolCallResult{}, fmt.Errorf("invalid status: %s", status)
@@ -757,14 +760,26 @@ func (s *Server) updateTask(args map[string]any) (toolCallResult, error) {
 		syn.Assignee = assignee
 	}
 
+	blockersChanged := false
 	if blockedByRaw, ok := args["blocked_by"].([]any); ok {
+		oldBlockedBy := append([]int(nil), syn.BlockedBy...)
 		blockedBy := make([]int, 0, len(blockedByRaw))
 		for _, v := range blockedByRaw {
 			if bid, ok := toFloat64(v); ok {
 				blockedBy = append(blockedBy, int(bid))
 			}
 		}
+		blockersChanged = !reflect.DeepEqual(oldBlockedBy, blockedBy)
 		syn.BlockedBy = blockedBy
+	}
+
+	if !statusProvided && blockersChanged {
+		if len(syn.BlockedBy) > 0 && syn.Status == types.StatusOpen {
+			syn.Status = types.StatusBlocked
+		}
+		if len(syn.BlockedBy) == 0 && syn.Status == types.StatusBlocked {
+			syn.Status = types.StatusOpen
+		}
 	}
 
 	if labelsRaw, ok := args["labels"].([]any); ok {

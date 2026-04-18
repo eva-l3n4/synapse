@@ -124,7 +124,11 @@ func (s *Synapse) ReleaseClaim() {
 	s.ClaimedBy = ""
 	s.ClaimedAt = nil
 	if s.Status == StatusInProgress {
-		s.Status = StatusOpen
+		if len(s.BlockedBy) > 0 {
+			s.Status = StatusBlocked
+		} else {
+			s.Status = StatusOpen
+		}
 	}
 	s.UpdatedAt = time.Now().UTC()
 }
