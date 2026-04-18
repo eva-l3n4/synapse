@@ -66,17 +66,14 @@ func NewSynapse(id int, title string) *Synapse {
 }
 
 // IsReady returns true if this synapse can be worked on.
-// A task is ready when:
-// - Status is "open" or "blocked" (blocked tasks become ready when blockers complete)
-// - Status is NOT in-progress, review, or done
-// - All blockers are done
-// The caller must provide a function to check if a blocker ID is done.
+// A task is ready when its status is "open" and all blockers are done.
+// Note: Reconcile() should be called first to ensure blocked tasks with
+// completed blockers have been transitioned to open.
 func (s *Synapse) IsReady(isBlockerDone func(id int) bool) bool {
-	// Already claimed or completed
-	if s.Status == StatusInProgress || s.Status == StatusReview || s.Status == StatusDone {
+	if s.Status != StatusOpen {
 		return false
 	}
-	// Check all blockers are done
+	// Belt-and-suspenders: check any remaining blockers are done.
 	for _, blockerID := range s.BlockedBy {
 		if !isBlockerDone(blockerID) {
 			return false

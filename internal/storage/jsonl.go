@@ -293,11 +293,6 @@ func (s *JSONLStore) All() []*types.Synapse {
 func (s *JSONLStore) Ready() []*types.Synapse {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.readyLocked()
-}
-
-// readyLocked returns ready synapses without acquiring the lock (caller must hold it).
-func (s *JSONLStore) readyLocked() []*types.Synapse {
 
 	isDone := func(id int) bool {
 		syn, ok := s.synapses[id]
