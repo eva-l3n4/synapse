@@ -293,6 +293,11 @@ func (s *JSONLStore) All() []*types.Synapse {
 func (s *JSONLStore) Ready() []*types.Synapse {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	return s.readyLocked()
+}
+
+// readyLocked returns ready synapses without acquiring the lock (caller must hold it).
+func (s *JSONLStore) readyLocked() []*types.Synapse {
 
 	isDone := func(id int) bool {
 		syn, ok := s.synapses[id]
@@ -444,4 +449,38 @@ func (s *JSONLStore) memoryPath() string {
 // Dir returns the storage directory path.
 func (s *JSONLStore) Dir() string {
 	return s.dir
+}
+
+// Reconcile walks all tasks and auto-transitions blocked → open when all
+// blockers are done. Returns the number of tasks that were transitioned.
+// Must be called after any mutation that could change task readiness
+// (done, update, block, unblock, etc.).
+func (s *JSONLStore) Reconcile() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	isDone := func(id int) bool {
+		syn, ok := s.synapses[id]
+		return ok && syn.Status == types.StatusDone
+	}
+
+	count := 0
+	for _, syn := range s.synapses {
+		if syn.Status != types.StatusBlocked {
+			continue
+		}
+		allDone := true
+		for _, blockerID := range syn.BlockedBy {
+			if !isDone(blockerID) {
+				allDone = false
+				break
+			}
+		}
+		if allDone {
+			syn.Status = types.StatusOpen
+			syn.UpdatedAt = time.Now().UTC()
+			count++
+		}
+	}
+	return count
 }

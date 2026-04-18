@@ -716,6 +716,7 @@ func (s *Server) createTask(args map[string]any) (toolCallResult, error) {
 		return toolCallResult{}, err
 	}
 
+	s.store.Reconcile()
 	if err := s.store.Save(); err != nil {
 		log.Printf("Warning: failed to save after create: %v", err)
 	}
@@ -780,6 +781,7 @@ func (s *Server) updateTask(args map[string]any) (toolCallResult, error) {
 		return toolCallResult{}, err
 	}
 
+	s.store.Reconcile()
 	if err := s.store.Save(); err != nil {
 		log.Printf("Warning: failed to save after update: %v", err)
 	}
@@ -1086,6 +1088,7 @@ func (s *Server) completeTask(args map[string]any) (toolCallResult, error) {
 		return toolCallResult{}, err
 	}
 
+	s.store.Reconcile()
 	if err := s.store.Save(); err != nil {
 		log.Printf("Warning: failed to save after complete: %v", err)
 	}
@@ -1133,6 +1136,7 @@ func (s *Server) spawnTask(args map[string]any) (toolCallResult, error) {
 		return toolCallResult{}, err
 	}
 
+	s.store.Reconcile()
 	if err := s.store.Save(); err != nil {
 		log.Printf("Warning: failed to save after spawn: %v", err)
 	}
@@ -1171,6 +1175,7 @@ func (s *Server) addNote(args map[string]any) (toolCallResult, error) {
 		return toolCallResult{}, err
 	}
 
+	s.store.Reconcile()
 	if err := s.store.Save(); err != nil {
 		log.Printf("Warning: failed to save after add_note: %v", err)
 	}
@@ -1354,6 +1359,7 @@ func (s *Server) claimTask(args map[string]any) (toolCallResult, error) {
 		return toolCallResult{}, err
 	}
 
+	s.store.Reconcile()
 	if err := s.store.Save(); err != nil {
 		log.Printf("Warning: failed to save after claim: %v", err)
 	}
@@ -1384,6 +1390,7 @@ func (s *Server) releaseClaim(args map[string]any) (toolCallResult, error) {
 		return toolCallResult{}, err
 	}
 
+	s.store.Reconcile()
 	if err := s.store.Save(); err != nil {
 		log.Printf("Warning: failed to save after release: %v", err)
 	}
@@ -1419,6 +1426,7 @@ func (s *Server) completeTaskAs(args map[string]any) (toolCallResult, error) {
 		return toolCallResult{}, err
 	}
 
+	s.store.Reconcile()
 	if err := s.store.Save(); err != nil {
 		log.Printf("Warning: failed to save after complete: %v", err)
 	}
@@ -1507,6 +1515,7 @@ func (s *Server) deleteTask(args map[string]any) (toolCallResult, error) {
 			return toolCallResult{}, err
 		}
 
+		s.store.Reconcile()
 		if err := s.store.Save(); err != nil {
 			log.Printf("Warning: failed to save after delete all: %v", err)
 		}
@@ -1535,6 +1544,7 @@ func (s *Server) deleteTask(args map[string]any) (toolCallResult, error) {
 			}, nil
 		}
 
+		s.store.Reconcile()
 		if err := s.store.Save(); err != nil {
 			log.Printf("Warning: failed to save after delete completed: %v", err)
 		}
@@ -1563,6 +1573,7 @@ func (s *Server) deleteTask(args map[string]any) (toolCallResult, error) {
 		return toolCallResult{}, err
 	}
 
+	s.store.Reconcile()
 	if err := s.store.Save(); err != nil {
 		log.Printf("Warning: failed to save after delete: %v", err)
 	}

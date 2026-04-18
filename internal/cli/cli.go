@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -81,7 +82,13 @@ func (r *runner) errorln(a ...any) {
 }
 
 // jsonOut writes v as indented JSON to stdout.
+// Nil slices are coerced to empty arrays for agent-friendly output.
 func (r *runner) jsonOut(v any) {
+	if v == nil {
+		v = []any{}
+	} else if rv := reflect.ValueOf(v); rv.Kind() == reflect.Slice && rv.IsNil() {
+		v = []any{}
+	}
 	enc := json.NewEncoder(r.stdout)
 	enc.SetIndent("", "  ")
 	_ = enc.Encode(v)
@@ -673,6 +680,8 @@ func (r *runner) getStore() (*storage.JSONLStore, int) {
 }
 
 func (r *runner) saveStore(store *storage.JSONLStore) int {
+	// Auto-transition blocked → open when all blockers are done.
+	store.Reconcile()
 	if err := store.Save(); err != nil {
 		r.errorf("error saving store: %v\n", err)
 		return 1
@@ -768,12 +777,16 @@ func (r *runner) cmdAdd(args []string) int {
 		switch {
 		case arg == "--blocks" && i+1 < len(args):
 			i++
-			id, err := strconv.Atoi(args[i])
-			if err != nil {
-				r.errorf("error: invalid blocker ID: %s\n", args[i])
-				return 1
+			// Accept comma-separated IDs: --blocks 1,2,3 or repeated --blocks 1 --blocks 2
+			for _, part := range strings.Split(args[i], ",") {
+				part = strings.TrimSpace(part)
+				id, err := strconv.Atoi(part)
+				if err != nil {
+					r.errorf("error: invalid blocker ID: %s\n", part)
+					return 1
+				}
+				blocks = append(blocks, id)
 			}
-			blocks = append(blocks, id)
 		case arg == "--parent" && i+1 < len(args):
 			i++
 			id, err := strconv.Atoi(args[i])
