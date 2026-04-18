@@ -260,7 +260,7 @@ Usage:
   ` + bin + ` add <title> [flags]
 
 Flags:
-  --blocks N        Block on synapse N (repeatable)
+  --blocks N        Block on synapse N (repeatable, or comma-separated: --blocks 1,2,3)
   --parent N        Set parent synapse ID
   --assignee X      Assign to role (e.g., @qa, @architect, @coder)
   --priority N      Priority (higher = more important; default 0)
@@ -282,6 +282,8 @@ Usage:
 
 Flags:
   --status X        Filter by status (open, in-progress, blocked, review, done)
+  --label X         Filter by label
+  --assignee X      Filter by assignee (e.g., @backend, @qa)
   --limit N         Limit output to N tasks (default 20, 0 for unlimited)
   --summary         Condensed output (default)
   --full            Show all fields for each task
@@ -290,6 +292,8 @@ Flags:
 Examples:
   ` + bin + ` list
   ` + bin + ` list --status open --limit 10
+  ` + bin + ` list --label bug
+  ` + bin + ` list --assignee @backend
   ` + bin + ` --json list --full`
 }
 
@@ -297,15 +301,19 @@ func helpReady(bin string) string {
 	return `List ready (unblocked, open) tasks — the next things any agent can pick up.
 
 Usage:
-  ` + bin + ` ready
+  ` + bin + ` ready [flags]
 
 Flags:
+  --assignee X      Filter by assignee (e.g., @backend, @qa)
+  --label X         Filter by label
   -h, --help        Show this help
 
 A task is "ready" when its status is open and all of its blockers are done.
 
-Example:
-  ` + bin + ` --json ready`
+Examples:
+  ` + bin + ` --json ready
+  ` + bin + ` ready --assignee @backend
+  ` + bin + ` ready --label bug`
 }
 
 func helpGet(bin string) string {
@@ -889,6 +897,7 @@ func (r *runner) cmdList(args []string) int {
 
 	var statusFilter string
 	var labelFilter string
+	var assigneeFilter string
 	var fullOutput bool
 	limit := 20
 
@@ -904,6 +913,11 @@ func (r *runner) cmdList(args []string) int {
 				i++
 				labelFilter = args[i]
 			}
+		case "--assignee":
+			if i+1 < len(args) {
+				i++
+				assigneeFilter = args[i]
+			}
 		case "--limit":
 			if i+1 < len(args) {
 				i++
@@ -918,6 +932,12 @@ func (r *runner) cmdList(args []string) int {
 			fullOutput = true
 		case "--summary":
 			fullOutput = false
+		default:
+			if strings.HasPrefix(args[i], "--") {
+				r.errorf("error: unknown flag: %s\n", args[i])
+				r.errorf("run '%s list --help' for usage\n", r.binaryName())
+				return 1
+			}
 		}
 	}
 
@@ -937,6 +957,8 @@ func (r *runner) cmdList(args []string) int {
 		synapses = store.ByStatus(status)
 	} else if labelFilter != "" {
 		synapses = store.ByLabel(labelFilter)
+	} else if assigneeFilter != "" {
+		synapses = store.ByAssignee(assigneeFilter)
 	} else {
 		synapses = store.All()
 	}
@@ -979,11 +1001,59 @@ func (r *runner) cmdReady(args []string) int {
 		return 0
 	}
 
+	var assigneeFilter string
+	var labelFilter string
+
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--assignee":
+			if i+1 < len(args) {
+				i++
+				assigneeFilter = args[i]
+			}
+		case "--label":
+			if i+1 < len(args) {
+				i++
+				labelFilter = args[i]
+			}
+		default:
+			if strings.HasPrefix(args[i], "--") {
+				r.errorf("error: unknown flag: %s\n", args[i])
+				r.errorf("run '%s ready --help' for usage\n", r.binaryName())
+				return 1
+			}
+		}
+	}
+
 	store, code := r.getStore()
 	if code != 0 {
 		return code
 	}
 	ready := store.Ready()
+
+	// Apply filters.
+	if assigneeFilter != "" || labelFilter != "" {
+		filtered := make([]*types.Synapse, 0, len(ready))
+		for _, syn := range ready {
+			if assigneeFilter != "" && syn.Assignee != assigneeFilter {
+				continue
+			}
+			if labelFilter != "" {
+				hasLabel := false
+				for _, l := range syn.Labels {
+					if l == labelFilter {
+						hasLabel = true
+						break
+					}
+				}
+				if !hasLabel {
+					continue
+				}
+			}
+			filtered = append(filtered, syn)
+		}
+		ready = filtered
+	}
 
 	if r.jsonOutput {
 		r.jsonOut(ready)
@@ -1067,6 +1137,11 @@ func (r *runner) cmdClaim(args []string) int {
 
 	if syn.Status == types.StatusDone {
 		r.errorf("error: synapse #%d is already done\n", id)
+		return 1
+	}
+
+	if syn.Status == types.StatusBlocked {
+		r.errorf("error: synapse #%d is blocked\n", id)
 		return 1
 	}
 

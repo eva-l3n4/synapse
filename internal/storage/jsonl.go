@@ -460,11 +460,11 @@ func (s *JSONLStore) Reconcile() int {
 
 	count := 0
 	for _, syn := range s.synapses {
-		// Skip tasks that can't have stale blockers.
-		if syn.Status == types.StatusDone || syn.Status == types.StatusInProgress || syn.Status == types.StatusReview {
+		if len(syn.BlockedBy) == 0 {
 			continue
 		}
-		if len(syn.BlockedBy) == 0 {
+		// Skip in-progress/review — blockers are informational while claimed.
+		if syn.Status == types.StatusInProgress || syn.Status == types.StatusReview {
 			continue
 		}
 		// Partition blockers into still-active and resolved.
