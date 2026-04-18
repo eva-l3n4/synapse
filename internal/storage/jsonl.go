@@ -452,9 +452,8 @@ func (s *JSONLStore) Dir() string {
 }
 
 // Reconcile walks all tasks and auto-transitions blocked → open when all
-// blockers are done. Returns the number of tasks that were transitioned.
-// Must be called after any mutation that could change task readiness
-// (done, update, block, unblock, etc.).
+// blockers are done. Completed blockers are moved to resolved_blockers to
+// preserve provenance. Returns the number of tasks that were transitioned.
 func (s *JSONLStore) Reconcile() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -469,16 +468,24 @@ func (s *JSONLStore) Reconcile() int {
 		if syn.Status != types.StatusBlocked {
 			continue
 		}
-		allDone := true
+		// Partition blockers into still-active and resolved.
+		var active, resolved []int
 		for _, blockerID := range syn.BlockedBy {
-			if !isDone(blockerID) {
-				allDone = false
-				break
+			if isDone(blockerID) {
+				resolved = append(resolved, blockerID)
+			} else {
+				active = append(active, blockerID)
 			}
 		}
-		if allDone {
-			syn.Status = types.StatusOpen
+		// Move resolved blockers if any changed.
+		if len(resolved) > 0 {
+			syn.BlockedBy = active
+			syn.ResolvedBlockers = append(syn.ResolvedBlockers, resolved...)
 			syn.UpdatedAt = time.Now().UTC()
+		}
+		// All blockers resolved → transition to open.
+		if len(active) == 0 {
+			syn.Status = types.StatusOpen
 			count++
 		}
 	}

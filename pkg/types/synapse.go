@@ -38,7 +38,8 @@ type Synapse struct {
 	Description    string     `json:"description,omitempty"`
 	Status         Status     `json:"status"`
 	Priority       int        `json:"priority,omitempty"` // Higher number = higher priority
-	BlockedBy      []int      `json:"blocked_by,omitempty"`
+	BlockedBy        []int      `json:"blocked_by,omitempty"`
+	ResolvedBlockers []int      `json:"resolved_blockers,omitempty"` // Blockers that were completed
 	ParentID       int        `json:"parent_id,omitempty"`
 	Assignee       string     `json:"assignee,omitempty"`
 	DiscoveredFrom string     `json:"discovered_from,omitempty"`
