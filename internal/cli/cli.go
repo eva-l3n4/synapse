@@ -676,6 +676,11 @@ func (r *runner) getStore() (*storage.JSONLStore, int) {
 		r.errorf("error loading store: %v\n", err)
 		return nil, 1
 	}
+	// Reconcile on load so read-only commands (get, list) see accurate status.
+	if n := store.Reconcile(); n > 0 {
+		// Persist the reconciled state so disk matches memory.
+		_ = store.Save()
+	}
 	return store, 0
 }
 

@@ -465,7 +465,11 @@ func (s *JSONLStore) Reconcile() int {
 
 	count := 0
 	for _, syn := range s.synapses {
-		if syn.Status != types.StatusBlocked {
+		// Skip tasks that can't have stale blockers.
+		if syn.Status == types.StatusDone || syn.Status == types.StatusInProgress || syn.Status == types.StatusReview {
+			continue
+		}
+		if len(syn.BlockedBy) == 0 {
 			continue
 		}
 		// Partition blockers into still-active and resolved.
@@ -483,8 +487,8 @@ func (s *JSONLStore) Reconcile() int {
 			syn.ResolvedBlockers = append(syn.ResolvedBlockers, resolved...)
 			syn.UpdatedAt = time.Now().UTC()
 		}
-		// All blockers resolved → transition to open.
-		if len(active) == 0 {
+		// All blockers resolved → transition to open (if still blocked).
+		if len(active) == 0 && syn.Status == types.StatusBlocked {
 			syn.Status = types.StatusOpen
 			count++
 		}
