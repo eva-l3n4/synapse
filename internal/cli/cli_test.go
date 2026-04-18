@@ -202,6 +202,216 @@ func TestAddCombinedNewFlags(t *testing.T) {
 	}
 }
 
+func TestList_LabelFilter(t *testing.T) {
+	dir := initStore(t)
+	bug1 := addTask(t, dir, "Bug 1", "--label", "bug")
+	addTask(t, dir, "Feature", "--label", "feature")
+	bug2 := addTask(t, dir, "Bug 2", "--label", "bug")
+
+	code, stdout, stderr := runIn(t, dir, "--json", "list", "--label", "bug")
+	if code != 0 {
+		t.Fatalf("list failed (code %d): %s", code, stderr)
+	}
+
+	var tasks []types.Synapse
+	if err := json.Unmarshal([]byte(stdout), &tasks); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(tasks) != 2 {
+		t.Fatalf("expected 2 tasks, got %d", len(tasks))
+	}
+	got := map[int]bool{}
+	for _, task := range tasks {
+		if !containsString(task.Labels, "bug") {
+			t.Fatalf("task #%d labels = %v, want bug label", task.ID, task.Labels)
+		}
+		got[task.ID] = true
+	}
+	if !got[bug1] || !got[bug2] {
+		t.Errorf("filtered tasks = %v, want IDs %d and %d", got, bug1, bug2)
+	}
+}
+
+func TestList_AssigneeFilter(t *testing.T) {
+	dir := initStore(t)
+	qa1 := addTask(t, dir, "QA 1", "--assignee", "@qa")
+	addTask(t, dir, "Coder", "--assignee", "@coder")
+	qa2 := addTask(t, dir, "QA 2", "--assignee", "@qa")
+
+	code, stdout, stderr := runIn(t, dir, "--json", "list", "--assignee", "@qa")
+	if code != 0 {
+		t.Fatalf("list failed (code %d): %s", code, stderr)
+	}
+
+	var tasks []types.Synapse
+	if err := json.Unmarshal([]byte(stdout), &tasks); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(tasks) != 2 {
+		t.Fatalf("expected 2 tasks, got %d", len(tasks))
+	}
+	got := map[int]bool{}
+	for _, task := range tasks {
+		if task.Assignee != "@qa" {
+			t.Fatalf("task #%d assignee = %q, want @qa", task.ID, task.Assignee)
+		}
+		got[task.ID] = true
+	}
+	if !got[qa1] || !got[qa2] {
+		t.Errorf("filtered tasks = %v, want IDs %d and %d", got, qa1, qa2)
+	}
+}
+
+func TestList_UnknownFlag(t *testing.T) {
+	dir := initStore(t)
+	code, _, stderr := runIn(t, dir, "list", "--bogus")
+	if code != 1 {
+		t.Fatalf("expected exit 1, got %d: %s", code, stderr)
+	}
+	if !strings.Contains(stderr, "--bogus") || !strings.Contains(stderr, "unknown flag") {
+		t.Errorf("expected unknown flag error for --bogus, got: %s", stderr)
+	}
+}
+
+func TestClaim_DoneTask(t *testing.T) {
+	dir := initStore(t)
+	id := addTask(t, dir, "Done claim")
+	if code, _, stderr := runIn(t, dir, "done", strconv.Itoa(id)); code != 0 {
+		t.Fatalf("done failed: %s", stderr)
+	}
+
+	code, _, stderr := runIn(t, dir, "claim", strconv.Itoa(id))
+	if code != 1 {
+		t.Fatalf("expected exit 1, got %d: %s", code, stderr)
+	}
+	if !strings.Contains(stderr, "already done") {
+		t.Errorf("expected already done error, got: %s", stderr)
+	}
+}
+
+func TestClaim_BlockedTask(t *testing.T) {
+	dir := initStore(t)
+	blocker := addTask(t, dir, "Blocker")
+	target := addTask(t, dir, "Blocked", "--blocks", strconv.Itoa(blocker))
+
+	code, _, stderr := runIn(t, dir, "claim", strconv.Itoa(target))
+	if code != 1 {
+		t.Fatalf("expected exit 1, got %d: %s", code, stderr)
+	}
+	if !strings.Contains(stderr, "blocked") {
+		t.Errorf("expected blocked error, got: %s", stderr)
+	}
+}
+
+func TestDone_AlreadyDone(t *testing.T) {
+	dir := initStore(t)
+	id := addTask(t, dir, "Already done")
+	if code, _, stderr := runIn(t, dir, "done", strconv.Itoa(id)); code != 0 {
+		t.Fatalf("first done failed: %s", stderr)
+	}
+
+	code, _, stderr := runIn(t, dir, "done", strconv.Itoa(id))
+	if code != 0 {
+		t.Fatalf("expected exit 0 on repeated done, got %d: %s", code, stderr)
+	}
+	if task := getTask(t, dir, id); task.Status != types.StatusDone {
+		t.Fatalf("status = %q, want done", task.Status)
+	}
+}
+
+func TestAdd_CommaBlocks(t *testing.T) {
+	dir := initStore(t)
+	a := addTask(t, dir, "A")
+	b := addTask(t, dir, "B")
+
+	code, stdout, stderr := runIn(t, dir, "--json", "add", "Blocked", "--blocks", strconv.Itoa(a)+","+strconv.Itoa(b))
+	if code != 0 {
+		t.Fatalf("add failed (code %d): %s", code, stderr)
+	}
+
+	var task types.Synapse
+	if err := json.Unmarshal([]byte(stdout), &task); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(task.BlockedBy) != 2 || task.BlockedBy[0] != a || task.BlockedBy[1] != b {
+		t.Fatalf("blocked_by = %v, want [%d %d]", task.BlockedBy, a, b)
+	}
+	if task.Status != types.StatusBlocked {
+		t.Fatalf("status = %q, want blocked", task.Status)
+	}
+}
+
+func TestReady_AssigneeFilter(t *testing.T) {
+	dir := initStore(t)
+	qa1 := addTask(t, dir, "QA 1", "--assignee", "@qa")
+	addTask(t, dir, "Coder", "--assignee", "@coder")
+	qa2 := addTask(t, dir, "QA 2", "--assignee", "@qa")
+
+	code, stdout, stderr := runIn(t, dir, "--json", "ready", "--assignee", "@qa")
+	if code != 0 {
+		t.Fatalf("ready failed (code %d): %s", code, stderr)
+	}
+
+	var tasks []types.Synapse
+	if err := json.Unmarshal([]byte(stdout), &tasks); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(tasks) != 2 {
+		t.Fatalf("expected 2 tasks, got %d", len(tasks))
+	}
+	got := map[int]bool{}
+	for _, task := range tasks {
+		if task.Assignee != "@qa" {
+			t.Fatalf("task #%d assignee = %q, want @qa", task.ID, task.Assignee)
+		}
+		got[task.ID] = true
+	}
+	if !got[qa1] || !got[qa2] {
+		t.Errorf("filtered tasks = %v, want IDs %d and %d", got, qa1, qa2)
+	}
+}
+
+func TestReady_LabelFilter(t *testing.T) {
+	dir := initStore(t)
+	bug1 := addTask(t, dir, "Bug 1", "--label", "bug")
+	addTask(t, dir, "Feature", "--label", "feature")
+	bug2 := addTask(t, dir, "Bug 2", "--label", "bug")
+
+	code, stdout, stderr := runIn(t, dir, "--json", "ready", "--label", "bug")
+	if code != 0 {
+		t.Fatalf("ready failed (code %d): %s", code, stderr)
+	}
+
+	var tasks []types.Synapse
+	if err := json.Unmarshal([]byte(stdout), &tasks); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(tasks) != 2 {
+		t.Fatalf("expected 2 tasks, got %d", len(tasks))
+	}
+	got := map[int]bool{}
+	for _, task := range tasks {
+		if !containsString(task.Labels, "bug") {
+			t.Fatalf("task #%d labels = %v, want bug label", task.ID, task.Labels)
+		}
+		got[task.ID] = true
+	}
+	if !got[bug1] || !got[bug2] {
+		t.Errorf("filtered tasks = %v, want IDs %d and %d", got, bug1, bug2)
+	}
+}
+
+func TestReady_UnknownFlag(t *testing.T) {
+	dir := initStore(t)
+	code, _, stderr := runIn(t, dir, "ready", "--bogus")
+	if code != 1 {
+		t.Fatalf("expected exit 1, got %d: %s", code, stderr)
+	}
+	if !strings.Contains(stderr, "--bogus") || !strings.Contains(stderr, "unknown flag") {
+		t.Errorf("expected unknown flag error for --bogus, got: %s", stderr)
+	}
+}
+
 func TestUnknownCommandSuggestsHelp(t *testing.T) {
 	dir := initStore(t)
 
